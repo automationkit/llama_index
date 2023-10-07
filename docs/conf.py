@@ -13,7 +13,7 @@
 import os
 import sys
 
-import sphinx_rtd_theme  # noqa: F401
+import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath("../"))
 
@@ -75,3 +75,4 @@ html_js_files = [
 ]
 
 nb_execution_mode = "off"
+autodoc_pydantic_model_show_json_error_strategy = "coerce"

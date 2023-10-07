@@ -1,5 +1,7 @@
 """Base agent type."""
 from typing import List, Optional
+
+from llama_index.callbacks import trace_method
 from llama_index.chat_engine.types import BaseChatEngine, StreamingAgentChatResponse
 from llama_index.indices.query.base import BaseQueryEngine
 from llama_index.indices.query.schema import QueryBundle
@@ -11,6 +13,7 @@ class BaseAgent(BaseChatEngine, BaseQueryEngine):
     """Base Agent."""
 
     # ===== Query Engine Interface =====
+    @trace_method("query")
     def _query(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
         agent_response = self.chat(
             query_bundle.query_str,
@@ -18,6 +21,7 @@ class BaseAgent(BaseChatEngine, BaseQueryEngine):
         )
         return Response(response=str(agent_response))
 
+    @trace_method("query")
     async def _aquery(self, query_bundle: QueryBundle) -> RESPONSE_TYPE:
         agent_response = await self.achat(
             query_bundle.query_str,

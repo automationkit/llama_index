@@ -1,8 +1,8 @@
 from typing import Any, List, Sequence
 
 import pytest
-
 from llama_index.agent.react.base import ReActAgent
+from llama_index.bridge.pydantic import PrivateAttr
 from llama_index.chat_engine.types import AgentChatResponse, StreamingAgentChatResponse
 from llama_index.llms.base import (
     ChatMessage,
@@ -14,7 +14,7 @@ from llama_index.llms.mock import MockLLM
 from llama_index.tools.function_tool import FunctionTool
 
 
-@pytest.fixture
+@pytest.fixture()
 def add_tool() -> FunctionTool:
     def add(a: int, b: int) -> int:
         """Add two integers and returns the result integer."""
@@ -24,6 +24,9 @@ def add_tool() -> FunctionTool:
 
 
 class MockChatLLM(MockLLM):
+    _i: int = PrivateAttr()
+    _responses: List[ChatMessage] = PrivateAttr()
+
     def __init__(self, responses: List[ChatMessage]) -> None:
         self._i = 0  # call counter, determines which response to return
         self._responses = responses  # list of responses to return
@@ -88,7 +91,7 @@ def test_chat_basic(
     ]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_achat_basic(
     add_tool: FunctionTool,
 ) -> None:
@@ -127,6 +130,9 @@ async def test_achat_basic(
 
 
 class MockStreamChatLLM(MockLLM):
+    _i: int = PrivateAttr()
+    _responses: List[ChatMessage] = PrivateAttr()
+
     def __init__(self, responses: List[ChatMessage]) -> None:
         self._i = 0  # call counter, determines which response to return
         self._responses = responses  # list of responses to return
@@ -190,7 +196,6 @@ def test_stream_chat_basic(
     for delta in response.response_gen:
         text_so_far += delta
         counter += 1
-
     expected_answer = MOCK_STREAM_FINAL_RESPONSE.split("Answer: ")[-1]
     assert text_so_far == expected_answer
     assert counter == len(expected_answer)
@@ -204,10 +209,15 @@ def test_stream_chat_basic(
             content="2 is the final answer.\n",
             role=MessageRole.ASSISTANT,
         ),
-    ]
+    ]  # thread = Thread(
+    #     target=lambda x: asyncio.run(
+    #         chat_stream_response.awrite_response_to_history(x)
+    #     ),
+    #     args=(self._memory,),
+    # )
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_astream_chat_basic(
     add_tool: FunctionTool,
 ) -> None:
@@ -233,10 +243,9 @@ async def test_astream_chat_basic(
 
     text_so_far = ""
     counter = 0
-    for delta in response.response_gen:
+    async for delta in response.async_response_gen():
         text_so_far += delta
         counter += 1
-
     expected_answer = MOCK_STREAM_FINAL_RESPONSE.split("Answer: ")[-1]
     assert text_so_far == expected_answer
     assert counter == len(expected_answer)

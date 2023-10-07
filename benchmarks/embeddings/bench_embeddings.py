@@ -1,13 +1,12 @@
-import pandas as pd
 import time
-from typing import List, Optional, Tuple, Callable
+from functools import partial
+from typing import Callable, List, Optional, Tuple
+
+import pandas as pd
 
 from llama_index import SimpleDirectoryReader
-from llama_index.embeddings import OpenAIEmbedding
+from llama_index.embeddings import OpenAIEmbedding, resolve_embed_model
 from llama_index.embeddings.base import DEFAULT_EMBED_BATCH_SIZE, BaseEmbedding
-from langchain.embeddings.huggingface import HuggingFaceEmbeddings
-from llama_index import LangchainEmbedding
-from functools import partial
 
 
 def generate_strings(num_strings: int = 100, string_length: int = 10) -> List[str]:
@@ -29,7 +28,7 @@ def generate_strings(num_strings: int = 100, string_length: int = 10) -> List[st
     num_loops_upper_bound = int(num_strings / strings_per_loop) + 1
     strings = []
 
-    for offset in range(0, num_loops_upper_bound + 1):
+    for offset in range(num_loops_upper_bound + 1):
         ptr = offset % string_length
         while ptr + string_length < content_length:
             strings.append(content[ptr : ptr + string_length])
@@ -48,15 +47,10 @@ def create_open_ai_embedding(batch_size: int) -> Tuple[BaseEmbedding, str, int]:
     )
 
 
-def create_hf_embedding(
+def create_local_embedding(
     model_name: str, batch_size: int
 ) -> Tuple[BaseEmbedding, str, int]:
-    model = LangchainEmbedding(
-        HuggingFaceEmbeddings(
-            model_name=model_name,
-        ),
-        embed_batch_size=batch_size,
-    )
+    model = resolve_embed_model(f"local:{model_name}")
     return (
         model,
         "hf/" + model_name,
@@ -96,11 +90,8 @@ def bench_simple_vector_store(
                     models.append(create_model(batch_size=batch_size))  # type: ignore
 
                 for model in models:
-                    for i, string in enumerate(strings):
-                        model[0].queue_text_for_embedding(str(i), string)
-
                     time1 = time.time()
-                    _ = model[0].get_queued_text_embeddings(show_progress=True)
+                    _ = model[0].get_text_embedding_batch(strings, show_progress=True)
 
                     time2 = time.time()
                     print(
@@ -125,13 +116,21 @@ if __name__ == "__main__":
         embed_models=[
             # create_open_ai_embedding,
             partial(
-                create_hf_embedding,
+                create_local_embedding,
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
             ),
-            # partial(
-            #     create_hf_embedding,
-            #     model_name="sentence-transformers/all-mpnet-base-v2",
-            # ),
+            partial(
+                create_local_embedding,
+                model_name="sentence-transformers/all-MiniLM-L12-v2",
+            ),
+            partial(
+                create_local_embedding,
+                model_name="BAAI/bge-small-en",
+            ),
+            partial(
+                create_local_embedding,
+                model_name="sentence-transformers/all-mpnet-base-v2",
+            ),
         ],
         torch_num_threads=None,
     )

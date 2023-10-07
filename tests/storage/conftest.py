@@ -1,7 +1,9 @@
 import pytest
+from llama_index.storage.kvstore.firestore_kvstore import FirestoreKVStore
 from llama_index.storage.kvstore.mongodb_kvstore import MongoDBKVStore
 from llama_index.storage.kvstore.redis_kvstore import RedisKVStore
 from llama_index.storage.kvstore.simple_kvstore import SimpleKVStore
+
 from tests.storage.kvstore.mock_mongodb import MockMongoClient
 
 
@@ -13,6 +15,11 @@ def mongo_client() -> MockMongoClient:
 @pytest.fixture()
 def mongo_kvstore(mongo_client: MockMongoClient) -> MongoDBKVStore:
     return MongoDBKVStore(mongo_client=mongo_client)  # type: ignore
+
+
+@pytest.fixture()
+def firestore_kvstore() -> FirestoreKVStore:
+    return FirestoreKVStore()
 
 
 @pytest.fixture()

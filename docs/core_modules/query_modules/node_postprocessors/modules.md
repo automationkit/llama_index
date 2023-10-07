@@ -27,6 +27,34 @@ postprocessor = KeywordNodePostprocessor(
 postprocessor.postprocess_nodes(nodes)
 ```
 
+## MetadataReplacementPostProcessor
+
+Used to replace the node content with a field from the node metadata. If the field is not present in the metadata, then the node text remains unchanged. Most useful when used in combination with the `SentenceWindowNodeParser`.
+
+```python
+from llama_index.indices.postprocessor import MetadataReplacementPostProcessor
+
+postprocessor = MetadataReplacementPostProcessor(
+  target_metadata_key="window",
+)
+
+postprocessor.postprocess_nodes(nodes)
+```
+
+## LongContextReorder
+
+Models struggle to access significant details found in the center of extended contexts. [A study](https://arxiv.org/abs/2307.03172) observed that the best performance typically arises when crucial data is positioned at the start or conclusion of the input context. Additionally, as the input context lengthens, performance drops notably, even in models designed for long contexts.
+
+This module will re-order the retrieved nodes, which can be helpful in cases where a large top-k is needed.
+
+```python
+from llama_index.indices.postprocessor import LongContextReorder
+
+postprocessor = LongContextReorder()
+
+postprocessor.postprocess_nodes(nodes)
+```
+
 ## SentenceEmbeddingOptimizer
 
 This postprocessor optimizes token usage by removing sentences that are not relevant to the query (this is done using embeddings).
@@ -76,7 +104,7 @@ from llama_index.indices.postprocessor import SentenceTransformerRerank
 
 # We choose a model with relatively high speed and decent accuracy.
 postprocessor = SentenceTransformerRerank(
-  model="cross-encoder/ms-marco-MiniLM-L-2-v2", 
+  model="cross-encoder/ms-marco-MiniLM-L-2-v2",
   top_n=3
 )
 
@@ -239,4 +267,6 @@ maxdepth: 1
 /examples/node_postprocessor/TimeWeightedPostprocessorDemo.ipynb
 /examples/node_postprocessor/PII.ipynb
 /examples/node_postprocessor/PrevNextPostprocessorDemo.ipynb
+/examples/node_postprocessor/MetadataReplacementDemo.ipynb
+/examples/node_postprocessor/LongContextReorder.ipynb
 ```

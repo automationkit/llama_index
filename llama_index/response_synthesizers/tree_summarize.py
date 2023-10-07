@@ -3,11 +3,12 @@ from typing import Any, List, Optional, Sequence
 
 from llama_index.async_utils import run_async_tasks
 from llama_index.indices.service_context import ServiceContext
-from llama_index.prompts.default_prompts import DEFAULT_TEXT_QA_PROMPT
-from llama_index.prompts.prompt_type import PromptType
-from llama_index.prompts.prompts import QuestionAnswerPrompt, SummaryPrompt
+from llama_index.prompts import BasePromptTemplate
+from llama_index.prompts.default_prompt_selectors import (
+    DEFAULT_TREE_SUMMARIZE_PROMPT_SEL,
+)
 from llama_index.response_synthesizers.base import BaseSynthesizer
-from llama_index.types import RESPONSE_TEXT_TYPE
+from llama_index.types import RESPONSE_TEXT_TYPE, BaseModel
 
 
 class TreeSummarize(BaseSynthesizer):
@@ -25,14 +26,17 @@ class TreeSummarize(BaseSynthesizer):
 
     def __init__(
         self,
-        text_qa_template: Optional[QuestionAnswerPrompt] = None,
+        summary_template: Optional[BasePromptTemplate] = None,
         service_context: Optional[ServiceContext] = None,
+        output_cls: Optional[BaseModel] = None,
         streaming: bool = False,
         use_async: bool = False,
         verbose: bool = False,
     ) -> None:
-        super().__init__(service_context=service_context, streaming=streaming)
-        self._text_qa_template = text_qa_template or DEFAULT_TEXT_QA_PROMPT
+        super().__init__(
+            service_context=service_context, streaming=streaming, output_cls=output_cls
+        )
+        self._summary_template = summary_template or DEFAULT_TREE_SUMMARIZE_PROMPT_SEL
         self._use_async = use_async
         self._verbose = verbose
 
@@ -43,12 +47,7 @@ class TreeSummarize(BaseSynthesizer):
         **response_kwargs: Any,
     ) -> RESPONSE_TEXT_TYPE:
         """Get tree summarize response."""
-
-        text_qa_template = self._text_qa_template.partial_format(query_str=query_str)
-        summary_template = SummaryPrompt.from_prompt(
-            text_qa_template, prompt_type=PromptType.SUMMARY
-        )
-
+        summary_template = self._summary_template.partial_format(query_str=query_str)
         # repack text_chunks so that each chunk fills the context window
         text_chunks = self._service_context.prompt_helper.repack(
             summary_template, text_chunks=text_chunks
@@ -68,15 +67,23 @@ class TreeSummarize(BaseSynthesizer):
             else:
                 response = await self._service_context.llm_predictor.apredict(
                     summary_template,
+                    output_cls=self._output_cls,
                     context_str=text_chunks[0],
                 )
-            return response
+
+            # return pydantic object if output_cls is specified
+            return (
+                response
+                if self._output_cls is None
+                else self._output_cls.parse_raw(response)
+            )
 
         else:
             # summarize each chunk
             tasks = [
                 self._service_context.llm_predictor.apredict(
                     summary_template,
+                    output_cls=self._output_cls,
                     context_str=text_chunk,
                 )
                 for text_chunk in text_chunks
@@ -97,10 +104,7 @@ class TreeSummarize(BaseSynthesizer):
         **response_kwargs: Any,
     ) -> RESPONSE_TEXT_TYPE:
         """Get tree summarize response."""
-        text_qa_template = self._text_qa_template.partial_format(query_str=query_str)
-        summary_template = SummaryPrompt.from_prompt(
-            text_qa_template, prompt_type=PromptType.SUMMARY
-        )
+        summary_template = self._summary_template.partial_format(query_str=query_str)
         # repack text_chunks so that each chunk fills the context window
         text_chunks = self._service_context.prompt_helper.repack(
             summary_template, text_chunks=text_chunks
@@ -120,9 +124,16 @@ class TreeSummarize(BaseSynthesizer):
             else:
                 response = self._service_context.llm_predictor.predict(
                     summary_template,
+                    output_cls=self._output_cls,
                     context_str=text_chunks[0],
                 )
-            return response
+
+            # return pydantic object if output_cls is specified
+            return (
+                response
+                if self._output_cls is None
+                else self._output_cls.parse_raw(response)
+            )
 
         else:
             # summarize each chunk
@@ -130,6 +141,7 @@ class TreeSummarize(BaseSynthesizer):
                 tasks = [
                     self._service_context.llm_predictor.apredict(
                         summary_template,
+                        output_cls=self._output_cls,
                         context_str=text_chunk,
                     )
                     for text_chunk in text_chunks
@@ -140,6 +152,7 @@ class TreeSummarize(BaseSynthesizer):
                 summaries = [
                     self._service_context.llm_predictor.predict(
                         summary_template,
+                        output_cls=self._output_cls,
                         context_str=text_chunk,
                     )
                     for text_chunk in text_chunks
